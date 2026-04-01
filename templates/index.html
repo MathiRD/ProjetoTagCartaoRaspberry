@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Acesso RFID</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #090c10;
+    --surface:   #0d1117;
+    --border:    #1e2a38;
+    --accent:    #00e5ff;
+    --green:     #00ff88;
+    --red:       #ff3c5a;
+    --yellow:    #ffc107;
+    --text:      #c9d1d9;
+    --muted:     #4a5568;
+    --mono:      'Share Tech Mono', monospace;
+    --sans:      'Rajdhani', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,229,255,.015) 2px,
+      rgba(0,229,255,.015) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 14px;
+  }
+
+  .logo-icon {
+    width: 38px; height: 38px;
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+  .logo-icon svg { width: 20px; height: 20px; fill: var(--accent); }
+
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,255,.4); }
+    50%       { box-shadow: 0 0 0 6px rgba(0,229,255,0); }
+  }
+
+  .logo-text h1 {
+    font-size: 1.1rem; font-weight: 700; letter-spacing: .12em;
+    text-transform: uppercase; color: #fff;
+  }
+  .logo-text span {
+    font-family: var(--mono); font-size: .68rem;
+    color: var(--muted); letter-spacing: .08em;
+  }
+
+  .header-right {
+    display: flex; align-items: center; gap: 20px;
+  }
+
+  #clock {
+    font-family: var(--mono); font-size: 1.3rem;
+    color: var(--accent); letter-spacing: .1em;
+  }
+  #date-display {
+    font-family: var(--mono); font-size: .75rem;
+    color: var(--muted);
+  }
+
+  .status-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%,100% { opacity: 1; } 50% { opacity: .3; }
+  }
+
+  main {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 28px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .card:hover { border-color: rgba(0,229,255,.35); }
+  .card:hover::before { opacity: 1; }
+
+  .card-title {
+    font-size: .7rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title::before {
+    content: ''; display: inline-block;
+    width: 4px; height: 14px; border-radius: 2px;
+    background: var(--accent);
+  }
+
+  .stats-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    display: flex; flex-direction: column; gap: 6px;
+    position: relative; overflow: hidden;
+    transition: border-color .2s;
+  }
+  .stat-card:hover { border-color: rgba(0,229,255,.3); }
+
+  .stat-label {
+    font-size: .68rem; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--muted);
+    font-weight: 600;
+  }
+  .stat-value {
+    font-family: var(--mono); font-size: 2rem;
+    color: #fff; line-height: 1;
+  }
+  .stat-value.green  { color: var(--green);  text-shadow: 0 0 20px rgba(0,255,136,.4); }
+  .stat-value.red    { color: var(--red);    text-shadow: 0 0 20px rgba(255,60,90,.4); }
+  .stat-value.yellow { color: var(--yellow); text-shadow: 0 0 20px rgba(255,193,7,.4); }
+  .stat-value.accent { color: var(--accent); text-shadow: 0 0 20px rgba(0,229,255,.4); }
+
+  .stat-sub { font-size: .75rem; color: var(--muted); }
+
+  .col-colaboradores { grid-column: 1 / 3; }
+
+  .colab-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .colab-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 14px;
+    transition: background .2s, border-color .2s;
+  }
+  .colab-item:hover { background: rgba(255,255,255,.02); border-color: rgba(0,229,255,.2); }
+
+  .colab-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: .9rem; font-weight: bold;
+    flex-shrink: 0;
+    border: 2px solid;
+  }
+  .colab-avatar.green  { background: rgba(0,255,136,.1);  border-color: var(--green);  color: var(--green); }
+  .colab-avatar.red    { background: rgba(255,60,90,.1);   border-color: var(--red);    color: var(--red); }
+  .colab-avatar.muted  { background: rgba(74,85,104,.1);   border-color: var(--muted);  color: var(--muted); }
+
+  .colab-info { flex: 1; }
+  .colab-nome { font-size: 1rem; font-weight: 600; color: #fff; }
+  .colab-meta { font-size: .75rem; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+
+  .colab-right { text-align: right; }
+  .colab-tempo {
+    font-family: var(--mono); font-size: .85rem; color: var(--accent);
+  }
+  .colab-sessoes { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: .68rem; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .badge-dentro  { background: rgba(0,255,136,.15); color: var(--green);  border: 1px solid rgba(0,255,136,.3); }
+  .badge-fora    { background: rgba(74,85,104,.15); color: var(--muted);  border: 1px solid var(--border); }
+  .badge-negado  { background: rgba(255,60,90,.15);  color: var(--red);    border: 1px solid rgba(255,60,90,.3); }
+
+  .badge-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .badge-dentro .badge-dot { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 1.4s infinite; }
+  .badge-fora   .badge-dot { background: var(--muted); }
+  .badge-negado .badge-dot { background: var(--red); }
+
+  .col-log { grid-column: 3 / 4; grid-row: 2 / 4; }
+
+  .log-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 520px; overflow-y: auto;
+    padding-right: 4px;
+  }
+  .log-list::-webkit-scrollbar { width: 4px; }
+  .log-list::-webkit-scrollbar-track { background: transparent; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .log-item {
+    border-left: 3px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    background: rgba(255,255,255,.02);
+    animation: fadeIn .3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+
+  .log-item.entrada { border-left-color: var(--green); }
+  .log-item.saida   { border-left-color: var(--accent); }
+  .log-item.negado  { border-left-color: var(--red); }
+  .log-item.invasao { border-left-color: var(--yellow); }
+
+  .log-hora   { font-family: var(--mono); font-size: .68rem; color: var(--muted); }
+  .log-msg    { font-size: .82rem; color: var(--text); margin-top: 3px; line-height: 1.4; }
+
+  .col-tentativas { grid-column: 1 / 3; }
+
+  .tent-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+
+  .tent-box {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .tent-box-title {
+    font-size: .7rem; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+  }
+  .tent-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-bottom: 1px solid var(--border);
+    font-size: .85rem;
+  }
+  .tent-row:last-child { border-bottom: none; }
+  .tent-count {
+    font-family: var(--mono); font-weight: bold;
+    color: var(--red); font-size: .9rem;
+  }
+  .tent-empty { color: var(--muted); font-size: .8rem; font-style: italic; }
+
+  .btn-download {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 7px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--sans); font-size: .85rem; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    text-decoration: none; cursor: pointer;
+    transition: background .2s, box-shadow .2s;
+    margin-top: 18px;
+  }
+  .btn-download:hover {
+    background: rgba(0,229,255,.1);
+    box-shadow: 0 0 16px rgba(0,229,255,.25);
+  }
+  .btn-download svg { width: 16px; height: 16px; fill: var(--accent); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--surface);
+    margin-top: 12px;
+  }
+  .footer-group { font-size: .75rem; color: var(--muted); line-height: 1.7; }
+  .footer-group strong { color: var(--text); }
+  .footer-label {
+    font-size: .6rem; letter-spacing: .15em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin-bottom: 6px;
+  }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .col-colaboradores, .col-log, .col-tentativas { grid-column: 1; }
+    .tent-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+    </div>
+    <div class="logo-text">
+      <h1>Controle de Acesso</h1>
+      <span>RFID · Sala do Projeto · Raspberry Pi 4B</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <div style="text-align:right">
+      <div id="clock">--:--:--</div>
+      <div id="date-display">--/--/----</div>
+    </div>
+    <div class="status-dot" title="Sistema ativo"></div>
+  </div>
+</header>
+
+<main>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Dentro agora</div>
+      <div class="stat-value green" id="s-dentro">0</div>
+      <div class="stat-sub">colaboradores presentes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Autorizados</div>
+      <div class="stat-value accent" id="s-autorizados">0</div>
+      <div class="stat-sub">colaboradores cadastrados</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Acesso negado</div>
+      <div class="stat-value yellow" id="s-negados">0</div>
+      <div class="stat-sub">tentativas sem autorização</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Invasões</div>
+      <div class="stat-value red" id="s-invasoes">0</div>
+      <div class="stat-sub">tags não cadastradas</div>
+    </div>
+  </div>
+
+  <div class="card col-colaboradores">
+    <div class="card-title">Colaboradores</div>
+    <div class="colab-list" id="colab-list">
+      <div style="color:var(--muted);font-size:.85rem">Carregando...</div>
+    </div>
+
+    <a href="/api/relatorio/csv" class="btn-download">
+      <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+      Baixar Relatório CSV
+    </a>
+  </div>
+
+  <div class="card col-log">
+    <div class="card-title">Log de Eventos</div>
+    <div class="log-list" id="log-list">
+      <div style="color:var(--muted);font-size:.82rem;font-style:italic">Aguardando eventos...</div>
+    </div>
+  </div>
+
+  <div class="card col-tentativas">
+    <div class="card-title">Tentativas de Acesso</div>
+    <div class="tent-grid">
+      <div class="tent-box">
+        <div class="tent-box-title">🔒 Sem autorização</div>
+        <div id="tent-nao-autorizados">
+          <span class="tent-empty">Nenhuma tentativa</span>
+        </div>
+      </div>
+      <div class="tent-box">
+        <div class="tent-box-title">🚨 Tags desconhecidas</div>
+        <div id="tent-invasao">
+          <span class="tent-empty">Nenhuma tentativa</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <div>
+    <div class="footer-label">Projeto</div>
+    <div class="footer-group">
+      Sistema de Controle de Acesso via RFID<br>
+      <strong>Disciplina de IoT / Sistemas Embarcados</strong>
+    </div>
+  </div>
+  <div style="text-align:right">
+    <div class="footer-label">Grupo</div>
+    <div class="footer-group">
+      <strong>Matheus Durigon Rodrigues</strong> — RA 1134695<br>
+      <strong>Erick De Nardi</strong> — RA 1134724<br>
+      <strong>João Inácio</strong> — RA 1135445<br>
+      <strong>Luis Zanin</strong> — RA 1136493
+    </div>
+  </div>
+</footer>
+
+<script>
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('pt-BR');
+    document.getElementById('date-display').textContent =
+      now.toLocaleDateString('pt-BR');
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  function initials(nome) {
+    return nome.split(' ').slice(0,2).map(p => p[0]).join('').toUpperCase();
+  }
+
+  function renderColabs(presenca) {
+    const el = document.getElementById('colab-list');
+    if (!presenca.length) { el.innerHTML = '<span style="color:var(--muted);font-size:.85rem">Sem dados.</span>'; return; }
+
+    let autorizados = 0;
+    let dentro = 0;
+
+    el.innerHTML = presenca.map(c => {
+      const avatarClass = !c.acesso ? 'muted' : c.dentro ? 'green' : 'red';
+      if (c.acesso) autorizados++;
+      if (c.dentro) dentro++;
+
+      let badge = '';
+      if (!c.acesso) {
+        badge = `<span class="badge badge-negado"><span class="badge-dot"></span>Sem acesso</span>`;
+      } else if (c.dentro) {
+        badge = `<span class="badge badge-dentro"><span class="badge-dot"></span>Dentro</span>`;
+      } else {
+        badge = `<span class="badge badge-fora"><span class="badge-dot"></span>Fora</span>`;
+      }
+
+      return `
+        <div class="colab-item">
+          <div class="colab-avatar ${avatarClass}">${initials(c.nome)}</div>
+          <div class="colab-info">
+            <div class="colab-nome">${c.nome}</div>
+            <div class="colab-meta">${badge}</div>
+          </div>
+          <div class="colab-right">
+            <div class="colab-tempo">${c.total}</div>
+            <div class="colab-sessoes">${c.sessoes} sessão(ões)</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('s-dentro').textContent = dentro;
+    document.getElementById('s-autorizados').textContent = autorizados;
+  }
+
+
+  let lastLogLen = 0;
+  function renderLog(log) {
+    if (log.length === lastLogLen) return;
+    lastLogLen = log.length;
+    const el = document.getElementById('log-list');
+    if (!log.length) {
+      el.innerHTML = '<span style="color:var(--muted);font-size:.82rem;font-style:italic">Aguardando eventos...</span>';
+      return;
+    }
+    el.innerHTML = log.map(ev => `
+      <div class="log-item ${ev.tipo}">
+        <div class="log-hora">${ev.hora}</div>
+        <div class="log-msg">${ev.mensagem}</div>
+      </div>`).join('');
+  }
+
+  function renderTentativas(naoAutorizados, totalInvasoes) {
+    const elNA = document.getElementById('tent-nao-autorizados');
+    document.getElementById('s-negados').textContent =
+      naoAutorizados.reduce((a, b) => a + b.tentativas, 0);
+
+    if (!naoAutorizados.length) {
+      elNA.innerHTML = '<span class="tent-empty">Nenhuma tentativa</span>';
+    } else {
+      elNA.innerHTML = naoAutorizados.map(n => `
+        <div class="tent-row">
+          <span>${n.nome}</span>
+          <span class="tent-count">${n.tentativas}x</span>
+        </div>`).join('');
+    }
+
+    document.getElementById('s-invasoes').textContent = totalInvasoes;
+    const elInv = document.getElementById('tent-invasao');
+    if (totalInvasoes === 0) {
+      elInv.innerHTML = '<span class="tent-empty">Nenhuma tentativa</span>';
+    } else {
+      elInv.innerHTML = `
+        <div class="tent-row">
+          <span>Tags não cadastradas</span>
+          <span class="tent-count">${totalInvasoes}x</span>
+        </div>`;
+    }
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      renderColabs(data.presenca);
+      renderLog(data.log);
+      renderTentativas(data.nao_autorizados, data.total_invasoes);
+    } catch(e) {
+      console.warn('Erro ao buscar status:', e);
+    }
+  }
+
+  poll();
+  setInterval(poll, 2000);
+</script>
+</body>
+</html>
